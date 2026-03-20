@@ -238,7 +238,7 @@ def main():
 
     final_map[final_map["id"].isna()].to_feather(args.out_dir / "missing_agencies.feather")
     final_map[final_map["id"].notna()].to_feather(args.out_dir / "institutions_processed_duplicates.feather")
-    final_map.to_parquet(args.out_dir / "final_map.parquet", index=False)
+    final_map[['grant_agency', 'id', 'counts', 'ids:ror', 'source', 'match_type', 'display_name']].to_parquet(args.out_dir / "final_map.parquet", index=False)
 
     print("Wrote:")
     print(args.out_dir / "final_map.parquet")

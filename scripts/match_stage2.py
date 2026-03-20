@@ -4,7 +4,7 @@ Stage 2: run NER matching on mid-counts (100 <= papers < 1000) without OpenAlex 
 Pipeline:
 1) Load stage1 agencies (u_agencies_stage1.parquet) and institutions_normalized.parquet.
 2) For missing entries in 100–1000 bucket, run GLiNER NER on grant_agency, then re-run matching
-   (exact display/all-names, substring, acronyms) on extracted entities (no OpenAlex API search).
+   (exact display/all-names, substring) on extracted entities (no OpenAlex API search).
 3) Write outputs:
    - artifacts/u_agencies_mid_ner.parquet
    - artifacts/u_agencies_mid_missing.parquet
