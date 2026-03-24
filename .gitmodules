@@ -1,0 +1,6 @@
+[submodule "preprocessing/libraries/openalex-raw"]
+	path = preprocessing/libraries/openalex-raw
+	url = https://github.com/filipinascimento/openalex-raw.git
+[submodule "preprocessing/libraries/WOSRaw"]
+	path = preprocessing/libraries/WOSRaw
+	url = https://github.com/filipinascimento/WOSRaw.git

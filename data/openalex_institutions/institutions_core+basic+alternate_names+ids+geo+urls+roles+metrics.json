@@ -1,0 +1,135 @@
+{
+    "count": 114713,
+    "schema": {
+        "id": {
+            "type": "int",
+            "NA value": -1
+        },
+        "display_name": {
+            "type": "str",
+            "NA value": ""
+        },
+        "type": {
+            "type": "str",
+            "NA value": ""
+        },
+        "country_code": {
+            "type": "str",
+            "NA value": ""
+        },
+        "display_name_acronyms": {
+            "type": "str",
+            "NA value": "",
+            "subtype": "str"
+        },
+        "display_name_alternatives": {
+            "type": "str",
+            "NA value": "",
+            "subtype": "str"
+        },
+        "ids:grid": {
+            "type": "str",
+            "NA value": ""
+        },
+        "ids:mag": {
+            "type": "str",
+            "NA value": ""
+        },
+        "ids:wikidata": {
+            "type": "str",
+            "NA value": ""
+        },
+        "ids:wikipedia": {
+            "type": "str",
+            "NA value": ""
+        },
+        "ids:ror": {
+            "type": "str",
+            "NA value": ""
+        },
+        "geo:city": {
+            "type": "str",
+            "NA value": ""
+        },
+        "geo:geonames_city_id": {
+            "type": "str",
+            "NA value": ""
+        },
+        "geo:region": {
+            "type": "str",
+            "NA value": ""
+        },
+        "geo:country_code": {
+            "type": "str",
+            "NA value": ""
+        },
+        "geo:country": {
+            "type": "str",
+            "NA value": ""
+        },
+        "geo:latitude": {
+            "type": "float",
+            "NA value": NaN
+        },
+        "geo:longitude": {
+            "type": "float",
+            "NA value": NaN
+        },
+        "homepage_url": {
+            "type": "str",
+            "NA value": ""
+        },
+        "image_url": {
+            "type": "str",
+            "NA value": ""
+        },
+        "image_thumbnail_url": {
+            "type": "str",
+            "NA value": ""
+        },
+        "roles": {
+            "type": "str",
+            "NA value": ""
+        },
+        "summary_stats:2yr_cited_by_count": {
+            "type": "int",
+            "NA value": -1
+        },
+        "summary_stats:2yr_h_index": {
+            "type": "int",
+            "NA value": -1
+        },
+        "summary_stats:2yr_i10_index": {
+            "type": "int",
+            "NA value": -1
+        },
+        "summary_stats:2yr_mean_citedness": {
+            "type": "float",
+            "NA value": NaN
+        },
+        "summary_stats:2yr_works_count": {
+            "type": "int",
+            "NA value": -1
+        },
+        "summary_stats:cited_by_count": {
+            "type": "int",
+            "NA value": -1
+        },
+        "summary_stats:h_index": {
+            "type": "int",
+            "NA value": -1
+        },
+        "summary_stats:i10_index": {
+            "type": "int",
+            "NA value": -1
+        },
+        "summary_stats:oa_percent": {
+            "type": "float",
+            "NA value": NaN
+        },
+        "summary_stats:works_count": {
+            "type": "int",
+            "NA value": -1
+        }
+    }
+}

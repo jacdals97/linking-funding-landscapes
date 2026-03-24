@@ -1,0 +1,62 @@
+{
+    "count": 32433,
+    "schema": {
+        "id": {
+            "type": "int",
+            "NA value": -1
+        },
+        "display_name": {
+            "type": "str",
+            "NA value": ""
+        },
+        "country_code": {
+            "type": "str",
+            "NA value": ""
+        },
+        "roles": {
+            "type": "str",
+            "NA value": ""
+        },
+        "ids:wikidata": {
+            "type": "str",
+            "NA value": ""
+        },
+        "ids:ror": {
+            "type": "str",
+            "NA value": ""
+        },
+        "ids:crossref": {
+            "type": "str",
+            "NA value": ""
+        },
+        "ids:doi": {
+            "type": "str",
+            "NA value": ""
+        },
+        "alternate_titles": {
+            "type": "str",
+            "NA value": "",
+            "subtype": "str"
+        },
+        "description": {
+            "type": "str",
+            "NA value": ""
+        },
+        "homepage_url": {
+            "type": "str",
+            "NA value": ""
+        },
+        "grants_count": {
+            "type": "int",
+            "NA value": -1
+        },
+        "works_count": {
+            "type": "int",
+            "NA value": -1
+        },
+        "cited_by_count": {
+            "type": "int",
+            "NA value": -1
+        }
+    }
+}
