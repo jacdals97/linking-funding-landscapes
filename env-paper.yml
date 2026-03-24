@@ -1,0 +1,8 @@
+name: linking_funding
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - matplotlib
+  - seaborn
+  - geopandas

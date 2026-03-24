@@ -1,5 +1,5 @@
 """
-Reproducible OpenAlex prep script extracted from matching_shared.ipynb.
+Reproducible OpenAlex prep script extracted from the legacy exploratory notebook.
 
 Steps:
 1) Load funder and institution TSVs using their JSON schemas.
@@ -537,12 +537,12 @@ def remove_accents(text: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Reproduce OpenAlex prep and first-pass matching.")
-    parser.add_argument("--input-dir", default="openalex_institutions_new", type=Path)
+    parser.add_argument("--input-dir", default="data/openalex_institutions", type=Path)
     parser.add_argument("--funders-tsv", default=None, type=Path, help="Override funders TSV path.")
     parser.add_argument("--funders-schema", default=None, type=Path, help="Override funders schema JSON path.")
     parser.add_argument("--institutions-tsv", default=None, type=Path, help="Override institutions TSV path.")
     parser.add_argument("--institutions-schema", default=None, type=Path, help="Override institutions schema JSON path.")
-    parser.add_argument("--ror-file", default=Path("v1.72-2025-10-06-ror-data_schema_v2.csv"), type=Path)
+    parser.add_argument("--ror-file", default=Path("data/v1.72-2025-10-06-ror-data_schema_v2.csv"), type=Path)
     parser.add_argument("--out-dir", default=Path("artifacts"), type=Path)
     args = parser.parse_args()
 

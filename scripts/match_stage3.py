@@ -189,7 +189,7 @@ def main():
     parser = argparse.ArgumentParser(description="Stage 3: final dedup and map writer.")
     parser.add_argument("--agencies", default=Path("artifacts/u_agencies_stage2.parquet"), type=Path)
     parser.add_argument("--institutions-parquet", default=Path("artifacts/institutions_normalized.parquet"), type=Path)
-    parser.add_argument("--ror-file", default=Path("v1.72-2025-10-06-ror-data_schema_v2.csv"), type=Path)
+    parser.add_argument("--ror-file", default=Path("data/v1.72-2025-10-06-ror-data_schema_v2.csv"), type=Path)
     parser.add_argument("--out-dir", default=Path("artifacts"), type=Path)
     parser.add_argument("--lsh-file", default=Path("artifacts/lsh.pkl"), type=Path)
     parser.add_argument("--lsh-threshold", default=0.9, type=float)

@@ -7,8 +7,8 @@ Stage 1 matching pipeline (reproducible, no NER/LSH dedup):
 
 Inputs (defaults match repo layout):
   - artifacts/institutions_normalized.parquet   (from scripts/oa_prep.py)
-  - WOS_TSV_FUNDING_2023.feather                 (WOS funding data)
-  - manual_annotations.json
+  - data/WOS_TSV_FUNDING_2023.feather            (WOS funding data)
+  - data/manual_annotations.json
 
 Outputs (written under --out-dir, default artifacts/):
   - u_agencies_stage1.parquet          : grant agencies with IDs/match types and components
@@ -102,11 +102,11 @@ def iter_progress(seq: Iterable, verbose: bool, desc: str):
 # ---------------------------- OpenAlex API for high bucket ---------------------------- #
 
 
-def query_openalex_funders(search_string: str, mailto: str) -> Optional[dict]:
-    if not mailto:
+def query_openalex_funders(search_string: str, api_key: str) -> Optional[dict]:
+    if not api_key:
         return None
-    url = f"https://api.openalex.org/funders?mailto={mailto}&search={search_string}"
-    resp = requests.get(url)
+    url = "https://api.openalex.org/funders"
+    resp = requests.get(url, params={"api_key": api_key, "search": search_string}, timeout=30)
     if resp.status_code != 200:
         return None
     data = resp.json()
@@ -121,13 +121,13 @@ def query_openalex_funders(search_string: str, mailto: str) -> Optional[dict]:
     }
 
 
-def augment_high_bucket(df: pd.DataFrame, mailto: Optional[str], sleep: float = 0.1, verbose: bool = False) -> pd.DataFrame:
-    if not mailto:
+def augment_high_bucket(df: pd.DataFrame, api_key: Optional[str], sleep: float = 0.1, verbose: bool = False) -> pd.DataFrame:
+    if not api_key:
         return df
     df = df.copy()
     resp_data = []
     for txt in iter_progress(df["grant_agency"], verbose=verbose, desc="OA API (high bucket)"):
-        res = query_openalex_funders(txt, mailto=mailto)
+        res = query_openalex_funders(txt, api_key=api_key)
         resp_data.append(res)
         time.sleep(sleep)
 
@@ -361,13 +361,13 @@ def load_manual_annotations(manual_path: Path) -> dict:
 def main():
     parser = argparse.ArgumentParser(description="Stage 1 matching through >1000-paper extraction.")
     parser.add_argument("--institutions-parquet", default=Path("artifacts/institutions_normalized.parquet"), type=Path)
-    parser.add_argument("--wos-feather", default=Path("WOS_TSV_FUNDING_2023.feather"), type=Path)
-    parser.add_argument("--manual-annotations", default=Path("manual_annotations.json"), type=Path, help="Single JSON mapping grant_agency -> id")
+    parser.add_argument("--wos-feather", default=Path("data/WOS_TSV_FUNDING_2023.feather"), type=Path)
+    parser.add_argument("--manual-annotations", default=Path("data/manual_annotations.json"), type=Path, help="Single JSON mapping grant_agency -> id")
     parser.add_argument("--out-dir", default=Path("artifacts"), type=Path)
     parser.add_argument("--skip-doc-clustering", action="store_true", help="Skip LSH doc clustering step.")
     parser.add_argument("--high-threshold", default=1000, type=int, help="Counts >= this go to high bucket OA API augmentation.")
     parser.add_argument("--skip-oa-api", action="store_true", help="Skip OpenAlex API augmentation for high bucket.")
-    parser.add_argument("--mailto", default=None, help="mailto param for OpenAlex; if absent, OA API is skipped.")
+    parser.add_argument("--api-key", default=None, help="OpenAlex API key; if absent, OA API augmentation is skipped.")
     parser.add_argument("--verbose", action="store_true", help="Print progress indicators for long steps.")
     args = parser.parse_args()
 
@@ -441,8 +441,8 @@ def main():
 
     # High bucket augmentation (>= high_threshold)
     high_missing = missing[missing["counts"] >= args.high_threshold].copy()
-    if len(high_missing) and not args.skip_oa_api and args.mailto:
-        high_aug = augment_high_bucket(high_missing, mailto=args.mailto, verbose=args.verbose)
+    if len(high_missing) and not args.skip_oa_api and args.api_key:
+        high_aug = augment_high_bucket(high_missing, api_key=args.api_key, verbose=args.verbose)
         df.loc[high_aug.index, ["id", "match_type"]] = high_aug[["id", "match_type"]]
         missing = df[df["id"].isna()].copy()
     else:
