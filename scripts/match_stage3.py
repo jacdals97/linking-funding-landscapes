@@ -3,7 +3,7 @@ Stage 3 final deduplication script:
 - Load merged agencies (stage 2) and normalized institutions.
 - Optionally propagate IDs within components one last time.
 - Run final MinHash/LSH dedup between unmatched agencies and institution names.
-- Merge results into final map with ROR enrichment and write outputs.
+- Merge results into final map with ROR enrichment and write the final WoS funder table.
 """
 
 from __future__ import annotations
@@ -236,14 +236,12 @@ def main():
 
     final_map = finalize_map(agencies, institutions, args.ror_file)
 
-    final_map[final_map["id"].isna()].to_feather(args.out_dir / "missing_agencies.feather")
-    final_map[final_map["id"].notna()].to_feather(args.out_dir / "institutions_processed_duplicates.feather")
-    final_map[['grant_agency', 'id', 'counts', 'ids:ror', 'source', 'match_type', 'display_name']].to_parquet(args.out_dir / "final_map.parquet", index=False)
+    final_map[
+        ["grant_agency", "id", "counts", "ids:ror", "source", "match_type", "display_name"]
+    ].to_parquet(args.out_dir / "wos_funders.parquet", index=False)
 
     print("Wrote:")
-    print(args.out_dir / "final_map.parquet")
-    print(args.out_dir / "institutions_processed_duplicates.feather")
-    print(args.out_dir / "missing_agencies.feather")
+    print(args.out_dir / "wos_funders.parquet")
 
 
 if __name__ == "__main__":

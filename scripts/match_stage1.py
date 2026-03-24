@@ -7,7 +7,7 @@ Stage 1 matching pipeline (reproducible, no NER/LSH dedup):
 
 Inputs (defaults match repo layout):
   - artifacts/institutions_normalized.parquet   (from scripts/oa_prep.py)
-  - data/WOS_TSV_FUNDING_2023.feather            (WOS funding data)
+  - data/WOS_TSV_FUNDING_2023.feather            (WOS funding data derived from WOSRaw; expected columns include UID and agency_name)
   - data/manual_annotations.json
 
 Outputs (written under --out-dir, default artifacts/):
@@ -361,7 +361,12 @@ def load_manual_annotations(manual_path: Path) -> dict:
 def main():
     parser = argparse.ArgumentParser(description="Stage 1 matching through >1000-paper extraction.")
     parser.add_argument("--institutions-parquet", default=Path("artifacts/institutions_normalized.parquet"), type=Path)
-    parser.add_argument("--wos-feather", default=Path("data/WOS_TSV_FUNDING_2023.feather"), type=Path)
+    parser.add_argument(
+        "--wos-feather",
+        default=Path("data/WOS_TSV_FUNDING_2023.feather"),
+        type=Path,
+        help="WoS funding feather built from WOSRaw output; expected columns include UID and agency_name, where agency_name encodes entries like 'funder:grant;funder:'.",
+    )
     parser.add_argument("--manual-annotations", default=Path("data/manual_annotations.json"), type=Path, help="Single JSON mapping grant_agency -> id")
     parser.add_argument("--out-dir", default=Path("artifacts"), type=Path)
     parser.add_argument("--skip-doc-clustering", action="store_true", help="Skip LSH doc clustering step.")
