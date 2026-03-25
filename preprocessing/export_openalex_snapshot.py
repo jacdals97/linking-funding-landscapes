@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-dir",
-        default=Path("Data/openalex_institutions"),
+        default=Path("data/openalex_institutions"),
         type=Path,
         help="Directory where exported files will be written.",
     )
