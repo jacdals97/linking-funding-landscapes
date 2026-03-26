@@ -4,3 +4,6 @@
 [submodule "preprocessing/libraries/WOSRaw"]
 	path = preprocessing/libraries/WOSRaw
 	url = https://github.com/filipinascimento/WOSRaw.git
+[submodule "preprocessing/libraries/parcake"]
+	path = preprocessing/libraries/parcake
+	url = https://github.com/filipinascimento/parcake.git

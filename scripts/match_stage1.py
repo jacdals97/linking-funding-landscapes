@@ -7,8 +7,8 @@ Stage 1 matching pipeline (reproducible, no NER/LSH dedup):
 
 Inputs (defaults match repo layout):
   - artifacts/institutions_normalized.parquet   (from scripts/oa_prep.py)
-  - data/WOS_TSV_FUNDING_2023.feather            (WOS funding data derived from WOSRaw; expected columns include UID and agency_name)
-  - data/manual_annotations.json
+    - data/WOS_TSV_FUNDING_2023.feather            (WOS funding data from preprocessing/export_wos_funding_feather.py; expected columns include UID and agency_name)
+    - data/manual_annotations.json
 
 Outputs (written under --out-dir, default artifacts/):
   - u_agencies_stage1.parquet          : grant agencies with IDs/match types and components
@@ -23,6 +23,7 @@ import argparse
 import ast
 import csv
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -102,11 +103,12 @@ def iter_progress(seq: Iterable, verbose: bool, desc: str):
 # ---------------------------- OpenAlex API for high bucket ---------------------------- #
 
 
-def query_openalex_funders(search_string: str, api_key: str) -> Optional[dict]:
+def query_openalex_funders(search_string: str, api_key: Optional[str]) -> Optional[dict]:
     if not api_key:
         return None
     url = "https://api.openalex.org/funders"
-    resp = requests.get(url, params={"api_key": api_key, "search": search_string}, timeout=30)
+    params = {"search": search_string, "api_key": api_key}
+    resp = requests.get(url, params=params, timeout=30)
     if resp.status_code != 200:
         return None
     data = resp.json()
@@ -365,14 +367,14 @@ def main():
         "--wos-feather",
         default=Path("data/WOS_TSV_FUNDING_2023.feather"),
         type=Path,
-        help="WoS funding feather built from WOSRaw output; expected columns include UID and agency_name, where agency_name encodes entries like 'funder:grant;funder:'.",
+        help="WoS funding feather built from preprocessing/export_wos_funding_feather.py; expected columns include UID and agency_name, where agency_name encodes entries like 'funder:grant;funder:'.",
     )
     parser.add_argument("--manual-annotations", default=Path("data/manual_annotations.json"), type=Path, help="Single JSON mapping grant_agency -> id")
     parser.add_argument("--out-dir", default=Path("artifacts"), type=Path)
     parser.add_argument("--skip-doc-clustering", action="store_true", help="Skip LSH doc clustering step.")
     parser.add_argument("--high-threshold", default=1000, type=int, help="Counts >= this go to high bucket OA API augmentation.")
     parser.add_argument("--skip-oa-api", action="store_true", help="Skip OpenAlex API augmentation for high bucket.")
-    parser.add_argument("--api-key", default=None, help="OpenAlex API key; if absent, OA API augmentation is skipped.")
+    parser.add_argument("--api-key", default=os.environ.get("OPENALEX_API_KEY"), help="OpenAlex API key; if absent, OA API augmentation is skipped.")
     parser.add_argument("--verbose", action="store_true", help="Print progress indicators for long steps.")
     args = parser.parse_args()
 
