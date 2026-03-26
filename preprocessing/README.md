@@ -70,6 +70,12 @@ This writes:
 
 Those processed parquet outputs are the useful starting point for downstream matching and validation work. The `WOS_TSV_FUNDING_2023.feather` export is derived from `WoS_2023_extra.parquet` for `scripts/match_stage1.py`. The downstream WOS helper scripts under `scripts_wos_funding` read the large WOS parquet tables with `parcake.PieceReader.process(...)` instead of direct `pyarrow` row-group reads.
 
+The main downstream consumers are:
+
+- `scripts/match_stage1.py`, which reads `WOS_TSV_FUNDING_2023.feather`;
+- `scripts_wos_funding/step1_attach_matches_to_wos.py`, which reads `WoS_2023_extra.parquet` and `WoS_2023_authors.parquet`;
+- `scripts_wos_funding/step2_build_wos_validation_samples.py`, which reads `WoS_2023_main.parquet`.
+
 ### Repo Wrapper Script
 
 This repository also includes a thin wrapper with the same defaults:

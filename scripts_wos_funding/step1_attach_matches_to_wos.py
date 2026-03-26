@@ -26,7 +26,7 @@ except Exception:  # pragma: no cover - optional dependency
 
 
 DEFAULT_INSTITUTIONS_NORMALIZED = Path("artifacts/institutions_normalized.parquet")
-DEFAULT_FINAL_MAP = Path("artifacts/final_map.parquet")
+DEFAULT_WOS_FUNDERS = Path("artifacts/wos_funders.parquet")
 DEFAULT_WOS_EXTRA = Path("data/WoS_2023_extra.parquet")
 DEFAULT_WOS_AUTHORS = Path("data/WoS_2023_authors.parquet")
 DEFAULT_RESULTS_DIR = Path("Results")
@@ -168,7 +168,13 @@ def parse_args() -> argparse.Namespace:
         description="Attach /scripts OpenAlex matches to WOS funding agencies using WOS processed parquet inputs."
     )
     parser.add_argument("--institutions-normalized", type=Path, default=DEFAULT_INSTITUTIONS_NORMALIZED)
-    parser.add_argument("--final-map", type=Path, default=DEFAULT_FINAL_MAP)
+    parser.add_argument(
+        "--wos-funders",
+        type=Path,
+        default=DEFAULT_WOS_FUNDERS,
+        help="Stage-3 output parquet from scripts/match_stage3.py.",
+    )
+    parser.add_argument("--final-map", dest="wos_funders", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--wos-extra", type=Path, default=DEFAULT_WOS_EXTRA)
     parser.add_argument("--wos-authors", type=Path, default=DEFAULT_WOS_AUTHORS)
     parser.add_argument("--results-dir", type=Path, default=DEFAULT_RESULTS_DIR)
@@ -349,15 +355,15 @@ def build_author_metadata(authors_path: Path, target_uts: set[str], workers: int
     return metadata
 
 
-def prepare_candidate_map(final_map_path: Path, institutions_metadata: pd.DataFrame) -> pd.DataFrame:
-    final_map = pd.read_parquet(final_map_path).copy()
-    final_map["grant_agency_normalized"] = final_map["grant_agency"].map(normalize_agency_name)
-    final_map["gid"] = final_map["id"].map(lambda value: f"OA_{value}" if pd.notna(value) else None)
-    final_map["counts"] = final_map["counts"].fillna(0)
+def prepare_candidate_map(wos_funders_path: Path, institutions_metadata: pd.DataFrame) -> pd.DataFrame:
+    wos_funders = pd.read_parquet(wos_funders_path).copy()
+    wos_funders["grant_agency_normalized"] = wos_funders["grant_agency"].map(normalize_agency_name)
+    wos_funders["gid"] = wos_funders["id"].map(lambda value: f"OA_{value}" if pd.notna(value) else None)
+    wos_funders["counts"] = wos_funders["counts"].fillna(0)
 
-    id_total_counts = final_map.groupby("id", dropna=True)["counts"].sum().rename("matched_count_total")
-    final_map = final_map.merge(id_total_counts, on="id", how="left")
-    final_map = final_map.merge(
+    id_total_counts = wos_funders.groupby("id", dropna=True)["counts"].sum().rename("matched_count_total")
+    wos_funders = wos_funders.merge(id_total_counts, on="id", how="left")
+    wos_funders = wos_funders.merge(
         institutions_metadata[["id", "country_code", "display_name", "ids:ror", "source"]],
         on="id",
         how="left",
@@ -366,17 +372,17 @@ def prepare_candidate_map(final_map_path: Path, institutions_metadata: pd.DataFr
 
     for column in ["display_name", "ids:ror", "source"]:
         inst_column = f"{column}_inst"
-        if inst_column in final_map.columns:
-            final_map[column] = final_map[column].fillna(final_map[inst_column])
-            final_map.drop(columns=[inst_column], inplace=True)
+        if inst_column in wos_funders.columns:
+            wos_funders[column] = wos_funders[column].fillna(wos_funders[inst_column])
+            wos_funders.drop(columns=[inst_column], inplace=True)
 
-    final_map.rename(columns={"country_code": "funder_country_code"}, inplace=True)
-    final_map = final_map.sort_values(
+    wos_funders.rename(columns={"country_code": "funder_country_code"}, inplace=True)
+    wos_funders = wos_funders.sort_values(
         ["grant_agency_normalized", "matched_count_total", "counts"],
         ascending=[True, False, False],
         kind="stable",
     )
-    return final_map.drop_duplicates(subset=["grant_agency_normalized", "gid"], keep="first").reset_index(drop=True)
+    return wos_funders.drop_duplicates(subset=["grant_agency_normalized", "gid"], keep="first").reset_index(drop=True)
 
 
 def build_candidate_lookup(candidates: pd.DataFrame) -> Dict[str, List[Dict[str, Any]]]:
@@ -423,7 +429,7 @@ def main() -> None:
     args.results_dir.mkdir(parents=True, exist_ok=True)
 
     institutions_metadata = load_institutions_metadata(args.institutions_normalized)
-    candidates = prepare_candidate_map(args.final_map, institutions_metadata)
+    candidates = prepare_candidate_map(args.wos_funders, institutions_metadata)
     candidate_lookup = build_candidate_lookup(candidates)
 
     grant_agencies = load_wos_grant_agencies(args.wos_extra, args.workers)
