@@ -89,9 +89,9 @@ That wrapper also writes `PATH/TO/OUTPUT/DIRECTORY/WOS_TSV_FUNDING_2023.feather`
 You can pass extra `wosraw-pipeline` arguments at the end. For example, to also write a raw parquet archive:
 
 ```bash
-bash preprocessing/run_wosraw_pipeline.sh /mnt/sciencegenome/WOS_RAW/WoS_2023 /mnt/helios/WOS \
+bash preprocessing/run_wosraw_pipeline.sh PATH/TO/YOUR/WOS/RAW/DATA PATH/TO/OUTPUT/DIRECTORY \
   --raw-output-format both \
-  --raw-parquet /mnt/helios/WOS/WoS_2023_All.parquet
+  --raw-parquet PATH/TO/OUTPUT/DIRECTORY/WoS_2023_All.parquet
 ```
 
 ## OpenAlex
@@ -111,7 +111,7 @@ This repository includes a helper script that reproduces those exports from a lo
 
 ```bash
 python preprocessing/export_openalex_snapshot.py \
-  --snapshot-path /mnt/openalex/OpenAlex/openalex-snapshot \
+  --snapshot-path PATH/TO/YOUR/OPENALEX/SNAPSHOT \
   --output-dir data/openalex_institutions \
   --entities institutions funders \
   --formats tsv \
@@ -122,7 +122,7 @@ If you also want parquet copies of the same exports:
 
 ```bash
 python preprocessing/export_openalex_snapshot.py \
-  --snapshot-path /mnt/openalex/OpenAlex/openalex-snapshot \
+  --snapshot-path PATH/TO/YOUR/OPENALEX/SNAPSHOT \
   --output-dir data/openalex_institutions \
   --entities institutions funders \
   --formats tsv parquet \
