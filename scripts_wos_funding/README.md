@@ -66,7 +66,7 @@ Default inputs:
 
 Main generated outputs:
 
-- `Results/Samples/complete_validation_dataset_2023_affiliation_match_20251023.parquet`
+- `Results/Samples/complete_validation_dataset_2023_affiliation_match_20251023.feather`
 - `Results/Samples/complete_validation_dataset_2023_affiliation_match_20251023.csv`
 - `Results/Samples/sample_by_paper_validation_dataset_2023_affiliation_match_20251023.csv`
 - `Results/Samples/sample_by_agency_validation_dataset_2023_affiliation_match_20251023.csv`
