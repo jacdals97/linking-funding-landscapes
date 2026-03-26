@@ -79,7 +79,7 @@ Preprocessing submodules:
 - [`preprocessing/libraries/WOSRaw`](preprocessing/libraries/WOSRaw)
 - [`preprocessing/libraries/parcake`](preprocessing/libraries/parcake)
 
-These are tracked as Git submodules. See [`preprocessing/libraries/README.md`](preprocessing/libraries/README.md) for installation details.
+These are tracked as Git submodules. See [`preprocessing/README.md`](preprocessing/README.md) for installation details.
 
 ## What Is Not Included
 
