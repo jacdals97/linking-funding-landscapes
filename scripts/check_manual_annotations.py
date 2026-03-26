@@ -37,10 +37,10 @@ def load_manual(manual_path: Path) -> Dict[str, str]:
     return {k: clean_id_val(v) for k, v in data.items() if clean_id_val(v)}
 
 
-def fetch_by_id(fid: str, mailto: str, sleep: float) -> dict:
+def fetch_by_id(fid: str, api_key: str, sleep: float) -> dict:
     url = f"https://api.openalex.org/funders/F{fid}"
-    params = {"mailto": mailto} if mailto else {}
-    r = requests.get(url, params=params)
+    params = {"api_key": api_key} if api_key else {}
+    r = requests.get(url, params=params, timeout=30)
     time.sleep(sleep)
     if r.status_code != 200:
         return {"status": f"http_{r.status_code}"}
@@ -53,10 +53,12 @@ def fetch_by_id(fid: str, mailto: str, sleep: float) -> dict:
     }
 
 
-def fetch_by_search(term: str, mailto: str, sleep: float) -> dict:
+def fetch_by_search(term: str, api_key: str, sleep: float) -> dict:
     url = "https://api.openalex.org/funders"
-    params = {"search": term, "mailto": mailto} if mailto else {"search": term}
-    r = requests.get(url, params=params)
+    params = {"search": term}
+    if api_key:
+        params["api_key"] = api_key
+    r = requests.get(url, params=params, timeout=30)
     time.sleep(sleep)
     if r.status_code != 200:
         return {"status": f"http_{r.status_code}"}
@@ -74,10 +76,10 @@ def fetch_by_search(term: str, mailto: str, sleep: float) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description="Check manual annotations against OpenAlex API.")
-    parser.add_argument("--manual-annotations", default=Path("manual_annotations.json"), type=Path)
+    parser.add_argument("--manual-annotations", default=Path("data/manual_annotations.json"), type=Path)
     parser.add_argument("--mode", choices=["id", "search"], default="id")
-    parser.add_argument("--mailto", default=None, help="Optional mailto for OpenAlex")
-    parser.add_argument("--out", default=Path("manual_annotations_checked.csv"), type=Path)
+    parser.add_argument("--api-key", default=None, help="Optional OpenAlex API key")
+    parser.add_argument("--out", default=Path("data/manual_annotations_checked.csv"), type=Path)
     parser.add_argument("--max", type=int, default=None, help="Limit number of records to check")
     parser.add_argument("--sleep", type=float, default=0.1, help="Sleep between requests (seconds)")
     args = parser.parse_args()
@@ -90,9 +92,9 @@ def main():
     rows = []
     for key, fid in items:
         if args.mode == "id":
-            res = fetch_by_id(fid, mailto=args.mailto, sleep=args.sleep)
+            res = fetch_by_id(fid, api_key=args.api_key, sleep=args.sleep)
         else:
-            res = fetch_by_search(key, mailto=args.mailto, sleep=args.sleep)
+            res = fetch_by_search(key, api_key=args.api_key, sleep=args.sleep)
         rows.append(
             {
                 "grant_agency": key,

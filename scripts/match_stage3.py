@@ -3,7 +3,7 @@ Stage 3 final deduplication script:
 - Load merged agencies (stage 2) and normalized institutions.
 - Optionally propagate IDs within components one last time.
 - Run final MinHash/LSH dedup between unmatched agencies and institution names.
-- Merge results into final map with ROR enrichment and write outputs.
+- Merge results into final map with ROR enrichment and write the final WoS funder table.
 """
 
 from __future__ import annotations
@@ -189,7 +189,7 @@ def main():
     parser = argparse.ArgumentParser(description="Stage 3: final dedup and map writer.")
     parser.add_argument("--agencies", default=Path("artifacts/u_agencies_stage2.parquet"), type=Path)
     parser.add_argument("--institutions-parquet", default=Path("artifacts/institutions_normalized.parquet"), type=Path)
-    parser.add_argument("--ror-file", default=Path("v1.72-2025-10-06-ror-data_schema_v2.csv"), type=Path)
+    parser.add_argument("--ror-file", default=Path("data/v1.72-2025-10-06-ror-data_schema_v2.csv"), type=Path)
     parser.add_argument("--out-dir", default=Path("artifacts"), type=Path)
     parser.add_argument("--lsh-file", default=Path("artifacts/lsh.pkl"), type=Path)
     parser.add_argument("--lsh-threshold", default=0.9, type=float)
@@ -236,14 +236,12 @@ def main():
 
     final_map = finalize_map(agencies, institutions, args.ror_file)
 
-    final_map[final_map["id"].isna()].to_feather(args.out_dir / "missing_agencies.feather")
-    final_map[final_map["id"].notna()].to_feather(args.out_dir / "institutions_processed_duplicates.feather")
-    final_map[['grant_agency', 'id', 'counts', 'ids:ror', 'source', 'match_type', 'display_name']].to_parquet(args.out_dir / "final_map.parquet", index=False)
+    final_map[
+        ["grant_agency", "id", "counts", "ids:ror", "source", "match_type", "display_name"]
+    ].to_parquet(args.out_dir / "wos_funders.parquet", index=False)
 
     print("Wrote:")
-    print(args.out_dir / "final_map.parquet")
-    print(args.out_dir / "institutions_processed_duplicates.feather")
-    print(args.out_dir / "missing_agencies.feather")
+    print(args.out_dir / "wos_funders.parquet")
 
 
 if __name__ == "__main__":
