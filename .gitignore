@@ -157,3 +157,30 @@ Temporary Items
 .apdisk
 .snakemake
 .vscode
+
+# Generated pipeline products and local execution state
+/artifacts/
+/Results/
+/outputs/
+/bundles/
+/paper_figures_output/
+/gliner_news_small/
+/logs/
+/pipeline.local.json
+/PATHS.md
+
+# Licensed source deliveries and large processed data (keep reference tables)
+/data/raw/
+/data/*.parquet
+/data/*.dbgz
+/data/*.idbgz
+/data/WoS_*_errors.log
+/data/*.feather
+/data/worker_logs/
+/data/v1_annotations/
+/plotting_data/ne_110m_admin_0_countries.geojson
+
+# Local agent resources are not pipeline dependencies
+/.agents
+/.claude
+/scisci_skills/

@@ -7,7 +7,7 @@ Stage 1 matching pipeline (reproducible, no NER/LSH dedup):
 
 Inputs (defaults match repo layout):
   - artifacts/institutions_normalized.parquet   (from scripts/oa_prep.py)
-    - data/WOS_TSV_FUNDING_2023.feather            (WOS funding data from preprocessing/export_wos_funding_feather.py; expected columns include UID and agency_name)
+    - data/WOS_TSV_FUNDING_2025.feather            (WOS funding data from preprocessing/export_wos_funding_feather.py; expected columns include UID and agency_name)
     - data/manual_annotations.json
 
 Outputs (written under --out-dir, default artifacts/):
@@ -365,7 +365,7 @@ def main():
     parser.add_argument("--institutions-parquet", default=Path("artifacts/institutions_normalized.parquet"), type=Path)
     parser.add_argument(
         "--wos-feather",
-        default=Path("data/WOS_TSV_FUNDING_2023.feather"),
+        default=Path("data/WOS_TSV_FUNDING_2025.feather"),
         type=Path,
         help="WoS funding feather built from preprocessing/export_wos_funding_feather.py; expected columns include UID and agency_name, where agency_name encodes entries like 'funder:grant;funder:'.",
     )
@@ -389,12 +389,19 @@ def main():
 
     # Load WOS grant agency counts
     u_agencies = (
-        pl.read_ipc(args.wos_feather)
+        pl.scan_ipc(args.wos_feather)
+        .select("agency_name")
         .with_columns(pl.col("agency_name").str.split(";"))
         .explode("agency_name")
         .with_columns(pl.col("agency_name").str.split(":").list.first().str.strip_chars())
         .filter(pl.col("agency_name") != "")
-    )["agency_name"].value_counts(sort=True).rename({"agency_name": "grant_agency", "count": "counts"}).to_pandas()
+        .group_by("agency_name")
+        .len(name="counts")
+        .sort("counts", descending=True)
+        .rename({"agency_name": "grant_agency"})
+        .collect(engine="streaming")
+        .to_pandas()
+    )
 
     u_agencies['grant_agency'] = u_agencies['grant_agency'].apply(html.unescape)
     u_agencies["grant_agency"] = u_agencies["grant_agency"].apply(lambda x: x.replace("&", "and"))

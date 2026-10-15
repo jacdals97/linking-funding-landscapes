@@ -1,0 +1,720 @@
+{
+  "variables": {
+    "workers": 4,
+    "data_dir": "data",
+    "artifacts_dir": "artifacts",
+    "results_dir": "Results",
+    "model_dir": "gliner_news_small",
+    "wos_raw_dir": "data/raw/wos",
+    "wos_basename": "WoS_2025",
+    "funding_feather": "{data_dir}/WOS_TSV_FUNDING_2025.feather",
+    "reference_dir": "data/openalex_institutions",
+    "ror_file": "data/v1.72-2025-10-06-ror-data_schema_v2.csv",
+    "manual_annotations": "data/manual_annotations.json",
+    "matches_basename": "2025_affiliation_match_20251023",
+    "matches": "{results_dir}/grant_institutions_{matches_basename}.parquet",
+    "scope_map": "scripts_wos_funding/funder_multicountry_scope_map_top5000_reviewed.csv",
+    "openalex_snapshot": "data/raw/openalex",
+    "dimensions_root": "data/raw/dimensions",
+    "source_results": "{results_dir}/SourcePaperFunders",
+    "plotting_dir": "plotting_data",
+    "figure_output": "paper_figures_output",
+    "subset_run": "outputs/wos_scie_ssci",
+    "subset_bundle": "bundles/wos_scie_ssci",
+    "annotations_dir": "data/v1_annotations",
+    "updated_annotations": "outputs/v1_annotations_updated",
+    "evaluation_output": "outputs/annotarium_funder_evaluation"
+  },
+  "workflows": {
+    "preprocessing": [
+      "wos-raw",
+      "funding-extract"
+    ],
+    "matching": [
+      "funding-extract",
+      "reference",
+      "match1",
+      "model",
+      "match2",
+      "match3",
+      "attach",
+      "validation"
+    ],
+    "from-raw": [
+      "wos-raw",
+      "funding-extract",
+      "reference",
+      "match1",
+      "model",
+      "match2",
+      "match3",
+      "attach",
+      "validation",
+      "resolution",
+      "year-counts",
+      "year-plots"
+    ],
+    "analysis": [
+      "resolution",
+      "year-counts",
+      "year-plots"
+    ],
+    "sources": [
+      "openalex-sources",
+      "dimensions-sources"
+    ],
+    "figures": [
+      "paper-figures"
+    ],
+    "scie-ssci": [
+      "subset-main",
+      "subset-matches",
+      "subset-tables",
+      "subset-authors",
+      "subset-plots",
+      "subset-bundle"
+    ],
+    "evaluation": [
+      "update-annotations",
+      "evaluation"
+    ]
+  },
+  "stages": {
+    "wos-raw": {
+      "command": [
+        "{python}",
+        "-u",
+        "-m",
+        "WOSRaw.cli",
+        "{wos_raw_dir}",
+        "--output-dir",
+        "{data_dir}",
+        "--base-name",
+        "{wos_basename}",
+        "--ncpu",
+        "{workers}",
+        "--max-piece-size",
+        "60000",
+        "--xml-timeout-seconds",
+        "20000"
+      ],
+      "inputs": [
+        "{wos_raw_dir}"
+      ],
+      "outputs": [
+        "{data_dir}/{wos_basename}_main.parquet",
+        "{data_dir}/{wos_basename}_authors.parquet",
+        "{data_dir}/{wos_basename}_extra.parquet"
+      ]
+    },
+    "funding-extract": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/preprocessing/export_wos_funding_feather.py",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--output",
+        "{funding_feather}",
+        "--workers",
+        "{workers}"
+      ],
+      "inputs": [
+        "{data_dir}/{wos_basename}_main.parquet"
+      ],
+      "outputs": [
+        "{funding_feather}"
+      ]
+    },
+    "reference": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/scripts/oa_prep.py",
+        "--input-dir",
+        "{reference_dir}",
+        "--ror-file",
+        "{ror_file}",
+        "--out-dir",
+        "{artifacts_dir}"
+      ],
+      "inputs": [
+        "{reference_dir}/funders_core+basic+ids+extra+counts.tsv",
+        "{reference_dir}/funders_core+basic+ids+extra+counts.json",
+        "{reference_dir}/institutions_core+basic+alternate_names+ids+geo+urls+roles+metrics.tsv",
+        "{reference_dir}/institutions_core+basic+alternate_names+ids+geo+urls+roles+metrics.json",
+        "{ror_file}"
+      ],
+      "outputs": [
+        "{artifacts_dir}/institutions_normalized.parquet"
+      ]
+    },
+    "match1": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/scripts/match_stage1.py",
+        "--institutions-parquet",
+        "{artifacts_dir}/institutions_normalized.parquet",
+        "--wos-feather",
+        "{funding_feather}",
+        "--manual-annotations",
+        "{manual_annotations}",
+        "--out-dir",
+        "{artifacts_dir}",
+        "--verbose"
+      ],
+      "inputs": [
+        "{artifacts_dir}/institutions_normalized.parquet",
+        "{funding_feather}",
+        "{manual_annotations}"
+      ],
+      "outputs": [
+        "{artifacts_dir}/u_agencies_stage1.parquet"
+      ]
+    },
+    "model": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/scripts/convert_gliner_news_to_onnx.py",
+        "--output-dir",
+        "{model_dir}"
+      ],
+      "inputs": [],
+      "outputs": [
+        "{model_dir}/model_quantized.onnx"
+      ]
+    },
+    "match2": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/scripts/match_stage2.py",
+        "--u-agencies",
+        "{artifacts_dir}/u_agencies_stage1.parquet",
+        "--institutions-parquet",
+        "{artifacts_dir}/institutions_normalized.parquet",
+        "--out-dir",
+        "{artifacts_dir}",
+        "--ner-model",
+        "{model_dir}",
+        "--ner-onnx",
+        "model_quantized.onnx",
+        "--verbose"
+      ],
+      "inputs": [
+        "{artifacts_dir}/u_agencies_stage1.parquet",
+        "{artifacts_dir}/institutions_normalized.parquet",
+        "{model_dir}/model_quantized.onnx"
+      ],
+      "outputs": [
+        "{artifacts_dir}/u_agencies_stage2.parquet"
+      ]
+    },
+    "match3": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/scripts/match_stage3.py",
+        "--agencies",
+        "{artifacts_dir}/u_agencies_stage2.parquet",
+        "--institutions-parquet",
+        "{artifacts_dir}/institutions_normalized.parquet",
+        "--ror-file",
+        "{ror_file}",
+        "--out-dir",
+        "{artifacts_dir}",
+        "--lsh-file",
+        "{artifacts_dir}/lsh.pkl",
+        "--verbose"
+      ],
+      "inputs": [
+        "{artifacts_dir}/u_agencies_stage2.parquet",
+        "{artifacts_dir}/institutions_normalized.parquet",
+        "{ror_file}"
+      ],
+      "outputs": [
+        "{artifacts_dir}/wos_funders.parquet"
+      ]
+    },
+    "attach": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/scripts_wos_funding/step1_attach_matches_to_wos.py",
+        "--institutions-normalized",
+        "{artifacts_dir}/institutions_normalized.parquet",
+        "--wos-funders",
+        "{artifacts_dir}/wos_funders.parquet",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--wos-extra",
+        "{data_dir}/{wos_basename}_extra.parquet",
+        "--wos-authors",
+        "{data_dir}/{wos_basename}_authors.parquet",
+        "--funder-scope-map",
+        "{scope_map}",
+        "--ror-csv",
+        "{ror_file}",
+        "--results-dir",
+        "{results_dir}",
+        "--basename",
+        "{matches_basename}",
+        "--workers",
+        "{workers}"
+      ],
+      "inputs": [
+        "{artifacts_dir}/institutions_normalized.parquet",
+        "{artifacts_dir}/wos_funders.parquet",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "{data_dir}/{wos_basename}_authors.parquet",
+        "{scope_map}",
+        "{ror_file}",
+        "{data_dir}/{wos_basename}_extra.parquet"
+      ],
+      "outputs": [
+        "{matches}"
+      ]
+    },
+    "validation": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/scripts_wos_funding/step2_build_wos_validation_samples.py",
+        "--matches",
+        "{matches}",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--output-dir",
+        "{results_dir}/Samples",
+        "--workers",
+        "{workers}"
+      ],
+      "inputs": [
+        "{matches}",
+        "{data_dir}/{wos_basename}_main.parquet"
+      ],
+      "outputs": [
+        "{results_dir}/Samples/complete_validation_dataset_{matches_basename}.csv"
+      ]
+    },
+    "resolution": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/analysis/summarize_matching_resolution.py",
+        "--matches",
+        "{matches}",
+        "--output-dir",
+        "{results_dir}/Diagnostics",
+        "--basename",
+        "{matches_basename}"
+      ],
+      "inputs": [
+        "{matches}"
+      ],
+      "outputs": [
+        "{results_dir}/Diagnostics/matching_resolution_overall_{matches_basename}.csv"
+      ]
+    },
+    "year-counts": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/analysis/build_wos_funding_year_counts.py",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--output-dir",
+        "{results_dir}/FundingYearCounts",
+        "--workers",
+        "{workers}"
+      ],
+      "inputs": [
+        "{data_dir}/{wos_basename}_main.parquet"
+      ],
+      "outputs": [
+        "{results_dir}/FundingYearCounts/wos_funding_paper_counts_by_year_from_1950.csv"
+      ]
+    },
+    "year-plots": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/analysis/plot_wos_funding_year_counts.py",
+        "--input",
+        "{results_dir}/FundingYearCounts/wos_funding_paper_counts_by_year_from_1950.csv",
+        "--output-dir",
+        "{results_dir}/FundingYearCounts"
+      ],
+      "inputs": [
+        "{results_dir}/FundingYearCounts/wos_funding_paper_counts_by_year_from_1950.csv"
+      ],
+      "outputs": [
+        "{results_dir}/FundingYearCounts/wos_funding_paper_counts_by_year_1950_2025_log.png",
+        "{results_dir}/FundingYearCounts/wos_funding_paper_counts_by_year_1950_2025_log.pdf"
+      ]
+    },
+    "openalex-sources": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/preprocessing/build_openalex_paper_funder_parquet.py",
+        "--snapshot-root",
+        "{openalex_snapshot}",
+        "--output",
+        "{source_results}/openalex_paper_funders.parquet",
+        "--counts-output",
+        "{source_results}/openalex_paper_counts_by_year.parquet"
+      ],
+      "inputs": [
+        "{openalex_snapshot}"
+      ],
+      "outputs": [
+        "{source_results}/openalex_paper_funders.parquet",
+        "{source_results}/openalex_paper_counts_by_year.parquet"
+      ]
+    },
+    "dimensions-sources": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/preprocessing/build_dimensions_paper_funder_parquet.py",
+        "--dimensions-root",
+        "{dimensions_root}",
+        "--output",
+        "{source_results}/dimensions_paper_funders.parquet",
+        "--counts-output",
+        "{source_results}/dimensions_paper_counts_by_year.parquet",
+        "--workers",
+        "{workers}"
+      ],
+      "inputs": [
+        "{dimensions_root}"
+      ],
+      "outputs": [
+        "{source_results}/dimensions_paper_funders.parquet",
+        "{source_results}/dimensions_paper_counts_by_year.parquet"
+      ]
+    },
+    "paper-figures": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/analysis/generate_paper_figures.py",
+        "--results-dir",
+        "{results_dir}",
+        "--source-results-dir",
+        "{source_results}",
+        "--plotting-dir",
+        "{plotting_dir}",
+        "--output-dir",
+        "{figure_output}",
+        "--wos-year-counts",
+        "{results_dir}/FundingYearCounts/wos_funding_paper_counts_by_year_from_1950.csv",
+        "--dimensions-root",
+        "{dimensions_root}",
+        "--scope-map",
+        "{scope_map}"
+      ],
+      "inputs": [
+        "{results_dir}/FundingYearCounts/wos_funding_paper_counts_by_year_from_1950.csv",
+        "{source_results}/openalex_paper_counts_by_year.parquet",
+        "{source_results}/dimensions_paper_counts_by_year.parquet",
+        "{plotting_dir}/wos_funder_types.tsv",
+        "{plotting_dir}/wos_author_country.tsv",
+        "{plotting_dir}/wos_funder_country.tsv",
+        "{plotting_dir}/openalex_author_country.tsv",
+        "{plotting_dir}/openalex_funder_country.tsv",
+        "{results_dir}/TopFunders/top5000_disambiguated_funders_scope_priority.csv",
+        "{scope_map}"
+      ],
+      "outputs": [
+        "{figure_output}/wos_funder_rank_frequency.png",
+        "{figure_output}/wos_funder_rank_frequency.pdf"
+      ]
+    },
+    "subset-main": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/analysis/recalculate_scie_ssci_results.py",
+        "--phase",
+        "main",
+        "--run-dir",
+        "{subset_run}",
+        "--bundle-dir",
+        "{subset_bundle}",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--wos-authors",
+        "{data_dir}/{wos_basename}_authors.parquet",
+        "--matches",
+        "{matches}",
+        "--plotting-dir",
+        "{plotting_dir}",
+        "--source-results-dir",
+        "{source_results}",
+        "--figure-cache-dir",
+        "{figure_output}/data",
+        "--scope-map",
+        "{scope_map}"
+      ],
+      "inputs": [
+        "{data_dir}/{wos_basename}_main.parquet"
+      ],
+      "outputs": [
+        "{subset_run}/work/retained_record_metadata.parquet"
+      ]
+    },
+    "subset-matches": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/analysis/recalculate_scie_ssci_results.py",
+        "--phase",
+        "matches",
+        "--run-dir",
+        "{subset_run}",
+        "--bundle-dir",
+        "{subset_bundle}",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--wos-authors",
+        "{data_dir}/{wos_basename}_authors.parquet",
+        "--matches",
+        "{matches}",
+        "--plotting-dir",
+        "{plotting_dir}",
+        "--source-results-dir",
+        "{source_results}",
+        "--figure-cache-dir",
+        "{figure_output}/data",
+        "--scope-map",
+        "{scope_map}"
+      ],
+      "inputs": [
+        "{matches}",
+        "{subset_run}/work/retained_record_metadata.parquet"
+      ],
+      "outputs": [
+        "{subset_run}/work/retained_existing_matches.parquet"
+      ]
+    },
+    "subset-tables": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/analysis/recalculate_scie_ssci_results.py",
+        "--phase",
+        "tables",
+        "--run-dir",
+        "{subset_run}",
+        "--bundle-dir",
+        "{subset_bundle}",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--wos-authors",
+        "{data_dir}/{wos_basename}_authors.parquet",
+        "--matches",
+        "{matches}",
+        "--plotting-dir",
+        "{plotting_dir}",
+        "--source-results-dir",
+        "{source_results}",
+        "--figure-cache-dir",
+        "{figure_output}/data",
+        "--scope-map",
+        "{scope_map}"
+      ],
+      "inputs": [
+        "{subset_run}/work/retained_existing_matches.parquet",
+        "{plotting_dir}/wos_funder_types.tsv",
+        "{subset_run}/work/retained_record_metadata.parquet"
+      ],
+      "outputs": [
+        "{subset_run}/aggregate_summary.json"
+      ]
+    },
+    "subset-authors": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/analysis/recalculate_scie_ssci_results.py",
+        "--phase",
+        "authors",
+        "--run-dir",
+        "{subset_run}",
+        "--bundle-dir",
+        "{subset_bundle}",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--wos-authors",
+        "{data_dir}/{wos_basename}_authors.parquet",
+        "--matches",
+        "{matches}",
+        "--plotting-dir",
+        "{plotting_dir}",
+        "--source-results-dir",
+        "{source_results}",
+        "--figure-cache-dir",
+        "{figure_output}/data",
+        "--scope-map",
+        "{scope_map}"
+      ],
+      "inputs": [
+        "{data_dir}/{wos_basename}_authors.parquet",
+        "{subset_run}/work/retained_record_metadata.parquet"
+      ],
+      "outputs": [
+        "{subset_run}/author_country_summary.json"
+      ]
+    },
+    "subset-plots": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/analysis/recalculate_scie_ssci_results.py",
+        "--phase",
+        "plots",
+        "--run-dir",
+        "{subset_run}",
+        "--bundle-dir",
+        "{subset_bundle}",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--wos-authors",
+        "{data_dir}/{wos_basename}_authors.parquet",
+        "--matches",
+        "{matches}",
+        "--plotting-dir",
+        "{plotting_dir}",
+        "--source-results-dir",
+        "{source_results}",
+        "--figure-cache-dir",
+        "{figure_output}/data",
+        "--scope-map",
+        "{scope_map}"
+      ],
+      "inputs": [
+        "{subset_run}/aggregate_summary.json",
+        "{subset_run}/author_country_summary.json",
+        "{source_results}/openalex_paper_counts_by_year.parquet",
+        "{source_results}/dimensions_paper_counts_by_year.parquet",
+        "{figure_output}/data/dimensions_funder_country_country_only.csv",
+        "{figure_output}/data/dimensions_author_country_country_only.csv",
+        "{plotting_dir}/ne_110m_admin_0_countries.geojson",
+        "{plotting_dir}/openalex_author_country.tsv",
+        "{plotting_dir}/openalex_funder_country.tsv",
+        "{scope_map}"
+      ],
+      "outputs": [
+        "{subset_run}/plots"
+      ]
+    },
+    "subset-bundle": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/analysis/recalculate_scie_ssci_results.py",
+        "--phase",
+        "bundle",
+        "--run-dir",
+        "{subset_run}",
+        "--bundle-dir",
+        "{subset_bundle}",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--wos-authors",
+        "{data_dir}/{wos_basename}_authors.parquet",
+        "--matches",
+        "{matches}",
+        "--plotting-dir",
+        "{plotting_dir}",
+        "--source-results-dir",
+        "{source_results}",
+        "--figure-cache-dir",
+        "{figure_output}/data",
+        "--scope-map",
+        "{scope_map}"
+      ],
+      "inputs": [
+        "{subset_run}/plots",
+        "{subset_run}/selection_summary.json",
+        "{subset_run}/aggregate_summary.json",
+        "{subset_run}/author_country_summary.json"
+      ],
+      "outputs": [
+        "{subset_bundle}/MANIFEST.json"
+      ]
+    },
+    "update-annotations": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/scripts/update_v1_annotations.py",
+        "--annotations-dir",
+        "{annotations_dir}",
+        "--output-dir",
+        "{updated_annotations}",
+        "--source-funders-dir",
+        "{source_results}",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--wos-matches",
+        "{matches}",
+        "--dimensions-organizations",
+        "{dimensions_root}/organizations"
+      ],
+      "inputs": [
+        "{annotations_dir}",
+        "{matches}",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "{source_results}/openalex_paper_funders.parquet",
+        "{source_results}/dimensions_paper_funders.parquet",
+        "{dimensions_root}/organizations"
+      ],
+      "outputs": [
+        "{updated_annotations}",
+        "{updated_annotations}/run_metadata.json"
+      ]
+    },
+    "evaluation": {
+      "command": [
+        "{python}",
+        "-u",
+        "{repo}/scripts/build_annotarium_funder_evaluation.py",
+        "--updated-annotations-dir",
+        "{updated_annotations}",
+        "--source-funders-dir",
+        "{source_results}",
+        "--wos-main",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "--wos-matches",
+        "{matches}",
+        "--normalized-institutions",
+        "{artifacts_dir}/institutions_normalized.parquet",
+        "--ror-registry",
+        "{ror_file}",
+        "--dimensions-organizations",
+        "{dimensions_root}/organizations",
+        "--output-dir",
+        "{evaluation_output}"
+      ],
+      "inputs": [
+        "{updated_annotations}",
+        "{artifacts_dir}/institutions_normalized.parquet",
+        "{ror_file}",
+        "{matches}",
+        "{data_dir}/{wos_basename}_main.parquet",
+        "{source_results}/openalex_paper_funders.parquet",
+        "{source_results}/dimensions_paper_funders.parquet",
+        "{dimensions_root}/organizations"
+      ],
+      "outputs": [
+        "{evaluation_output}/records.csv",
+        "{evaluation_output}/build_summary.json"
+      ]
+    }
+  }
+}

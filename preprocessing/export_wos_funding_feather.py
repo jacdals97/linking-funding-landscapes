@@ -2,20 +2,38 @@ from __future__ import annotations
 
 import argparse
 import ast
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, Iterable, Iterator, List, Sequence
+from typing import Any, Iterable, Iterator, Sequence
 
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.ipc as ipc
+import pyarrow.parquet as pq
+
+try:
+    from tqdm.auto import tqdm
+except Exception:  # pragma: no cover - optional dependency
+    tqdm = None  # type: ignore[assignment]
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Export the legacy WOS funding feather expected by scripts/match_stage1.py from WoS processed parquet."
     )
-    parser.add_argument("--wos-extra", type=Path, default=Path("data/WoS_2023_extra.parquet"))
-    parser.add_argument("--output", type=Path, default=Path("data/WOS_TSV_FUNDING_2023.feather"))
+    parser.add_argument(
+        "--wos-main",
+        type=Path,
+        default=Path("data/WoS_2025_main.parquet"),
+        help="Processed WOS main parquet. WOSRaw writes UT, FP, FU, and FX here.",
+    )
+    parser.add_argument(
+        "--wos-extra",
+        type=Path,
+        default=None,
+        help="Deprecated compatibility option. FUR lives in extra, but the funding feather is built from main.",
+    )
+    parser.add_argument("--output", type=Path, default=Path("data/WOS_TSV_FUNDING_2025.feather"))
     parser.add_argument("--workers", type=int, default=-1)
     return parser.parse_args()
 
@@ -43,10 +61,10 @@ def default_worker_count(workers: int | None) -> int:
 
     detected = os.cpu_count() or 1
     if workers in (None, 0):
-        return max(1, detected - 1)
+        return min(23, max(1, detected - 1))
     if workers == -1:
-        return detected
-    return max(1, int(workers))
+        return min(23, detected)
+    return min(23, max(1, int(workers)))
 
 
 def coerce_list(value: Any) -> list[Any]:
@@ -96,34 +114,67 @@ def process_piece(frame: pd.DataFrame) -> pd.DataFrame:
     if frame.empty:
         return pd.DataFrame(columns=["UID", "agency_name", "funding", "funding_text", "funding_data"])
 
+    fp = frame["FP"] if "FP" in frame.columns else pd.Series("", index=frame.index)
+    fu = frame["FU"] if "FU" in frame.columns else pd.Series("", index=frame.index)
+    fx = frame["FX"] if "FX" in frame.columns else pd.Series("", index=frame.index)
+    fur = frame["FUR"] if "FUR" in frame.columns else pd.Series("", index=frame.index)
+
     rows = pd.DataFrame(
         {
             "UID": frame["UT"].astype(str),
-            "agency_name": [derive_agency_name(fp, fu) for fp, fu in zip(frame["FP"], frame["FU"])],
-            "funding": [join_list(coerce_list(value)) for value in frame["FU"]],
-            "funding_text": frame["FX"].fillna("").astype(str),
-            "funding_data": [join_list(coerce_list(value)) for value in frame["FUR"]],
+            "agency_name": [derive_agency_name(fp_value, fu_value) for fp_value, fu_value in zip(fp, fu)],
+            "funding": [join_list(coerce_list(value)) for value in fu],
+            "funding_text": fx.fillna("").astype(str),
+            "funding_data": [join_list(coerce_list(value)) for value in fur],
         }
     )
     return rows[rows["agency_name"] != ""]
 
 
 def iter_piece_results(source: Path | str, columns: Sequence[str], workers: int) -> Iterator[pd.DataFrame]:
-    reader = PieceReader(source, columns=columns)
-    with ThreadPoolExecutor(max_workers=default_worker_count(workers)) as executor:
-        yield from reader.process(process_piece, executor=executor, keep_order=True, unordered=False)
+    metadata = pq.ParquetFile(source)
+    available_columns = [column for column in columns if column in metadata.schema_arrow.names]
+    missing_columns = sorted(set(columns) - set(available_columns))
+    if missing_columns:
+        print(f"Skipping unavailable columns in {source}: {', '.join(missing_columns)}")
+
+    reader = PieceReader(source, columns=available_columns)
+    iterator = reader.process(process_piece, ncpu=default_worker_count(workers), keep_order=False)
+    if tqdm is not None:
+        iterator = tqdm(
+            iterator,
+            total=metadata.metadata.num_row_groups,
+            desc=f"Exporting {Path(source).name}",
+            unit="task",
+        )
+    yield from iterator
 
 
 def main() -> None:
     args = parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
-    frames = [frame for frame in iter_piece_results(args.wos_extra, ["UT", "FP", "FU", "FX", "FUR"], args.workers) if not frame.empty]
-    if not frames:
-        raise RuntimeError("No funding rows were produced from the provided WoS extra parquet file.")
+    source = args.wos_main
+    wrote_any = False
+    writer: ipc.RecordBatchFileWriter | None = None
+    with pa.OSFile(str(args.output), "wb") as sink:
+        try:
+            for frame in iter_piece_results(source, ["UT", "FP", "FU", "FX"], args.workers):
+                if frame.empty:
+                    continue
+                table = pa.Table.from_pandas(frame, preserve_index=False)
+                if writer is None:
+                    writer = ipc.new_file(sink, table.schema)
+                writer.write_table(table)
+                wrote_any = True
+        finally:
+            if writer is not None:
+                writer.close()
 
-    result = pd.concat(frames, ignore_index=True)
-    result.to_feather(args.output)
+    if not wrote_any:
+        args.output.unlink(missing_ok=True)
+        raise RuntimeError("No funding rows were produced from the provided WoS main parquet file.")
+
     print(args.output)
 
 

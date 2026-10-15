@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-from functools import partial
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Any, Iterable, List, Optional
 
@@ -10,9 +10,9 @@ import numpy as np
 import pandas as pd
 
 try:
-    from parcake_utils import iter_piece_results
+    from parcake_utils import PieceReader, default_worker_count
 except ModuleNotFoundError:
-    from scripts_wos_funding.parcake_utils import iter_piece_results
+    from scripts_wos_funding.parcake_utils import PieceReader, default_worker_count
 
 try:
     from tqdm.auto import tqdm
@@ -20,8 +20,8 @@ except Exception:  # pragma: no cover - optional dependency
     tqdm = None  # type: ignore[assignment]
 
 
-DEFAULT_MATCHES = Path("Results/grant_institutions_2023_affiliation_match_20251023.parquet")
-DEFAULT_WOS_MAIN = Path("data/WoS_2023_main.parquet")
+DEFAULT_MATCHES = Path("Results/grant_institutions_2025_affiliation_match_20251023.parquet")
+DEFAULT_WOS_MAIN = Path("data/WoS_2025_main.parquet")
 DEFAULT_OUTPUT_DIR = Path("Results/Samples")
 
 
@@ -37,10 +37,10 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def iter_progress(iterable: Iterable[Any], *, total: Optional[int] = None, desc: str = "") -> Iterable[Any]:
+def iter_progress(iterable: Iterable[Any], *, total: Optional[int] = None, desc: str = "", unit: str = "it") -> Iterable[Any]:
     if tqdm is None:
         return iterable
-    return tqdm(iterable, total=total, desc=desc)
+    return tqdm(iterable, total=total, desc=desc, unit=unit)
 
 
 def build_openalex_url(gid: Any, source: Any) -> str:
@@ -52,7 +52,7 @@ def build_openalex_url(gid: Any, source: Any) -> str:
     return ""
 
 
-def extract_wos_rows(frame: pd.DataFrame, target_uts: set[str]) -> pd.DataFrame:
+def extract_wos_rows(frame: pd.DataFrame, _row_group: Any = None, *, target_uts: set[str]) -> pd.DataFrame:
     if frame.empty:
         return pd.DataFrame(columns=["UT", "title", "DOI"])
     filtered = frame[frame["UT"].isin(target_uts)]
@@ -62,6 +62,18 @@ def extract_wos_rows(frame: pd.DataFrame, target_uts: set[str]) -> pd.DataFrame:
     rows.rename(columns={"TI": "title"}, inplace=True)
     rows["DOI"] = rows["DI"].fillna("").map(lambda doi: f"https://doi.org/{doi}" if doi else "")
     return rows[["UT", "title", "DOI"]]
+
+
+TARGET_UTS: set[str] = set()
+
+
+def initialize_target_uts(target_uts: set[str]) -> None:
+    global TARGET_UTS
+    TARGET_UTS = target_uts
+
+
+def extract_wos_rows_from_global(frame: pd.DataFrame, *_piece_args: Any) -> pd.DataFrame:
+    return extract_wos_rows(frame, *_piece_args, target_uts=TARGET_UTS)
 
 
 def main() -> None:
@@ -80,22 +92,28 @@ def main() -> None:
     )
 
     target_uts = set(matches["UT"].dropna().astype(str).unique())
-    frames: List[pd.DataFrame] = []
-    iterator = iter_piece_results(
-        args.wos_main,
-        columns=["UT", "TI", "DI"],
-        processor=partial(extract_wos_rows, target_uts=target_uts),
-        workers=args.workers,
-        keep_order=True,
-    )
-    for frame in iter_progress(iterator, desc="Reading WOS titles and DOIs"):
-        if not frame.empty:
-            frames.append(frame)
+    rows_by_ut: dict[str, tuple[str, str]] = {}
+    with ProcessPoolExecutor(max_workers=default_worker_count(args.workers),
+                             initializer=initialize_target_uts, initargs=(target_uts,)) as executor:
+        reader = PieceReader(args.wos_main, columns=["UT", "TI", "DI"])
+        iterator = reader.process(extract_wos_rows_from_global, executor=executor, keep_order=False)
+        for frame in iter_progress(
+            iterator,
+            total=reader.task_count(),
+            desc="Reading WOS titles and DOIs",
+            unit="task",
+        ):
+            if frame.empty:
+                continue
+            for ut, title, doi in frame[["UT", "title", "DOI"]].itertuples(index=False):
+                rows_by_ut.setdefault(str(ut), (title, doi))
 
-    if not frames:
+    if not rows_by_ut:
         raise RuntimeError("No matching WOS records were found in the provided main parquet file.")
 
-    results = pd.concat(frames, ignore_index=True).drop_duplicates(subset=["UT"])
+    results = pd.DataFrame(
+        [{"UT": ut, "title": title, "DOI": doi} for ut, (title, doi) in rows_by_ut.items()]
+    )
     results["display_names"] = results["UT"].map(display_name_lookup).fillna("NOT MATCHED")
     results["OA_URLs"] = results["UT"].map(url_lookup).fillna("")
 

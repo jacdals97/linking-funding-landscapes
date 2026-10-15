@@ -12,20 +12,21 @@ import numpy as np
 import pandas as pd
 
 
-def _load_piece_reader():
+def _load_piece_classes():
     try:
-        from parcake import PieceReader
-        return PieceReader
+        from parcake import PieceReader, PieceSaver
+        return PieceReader, PieceSaver
     except ModuleNotFoundError:
         repo_root = Path(__file__).resolve().parents[1]
         vendored_src = repo_root / "preprocessing" / "libraries" / "parcake" / "src"
         if vendored_src.exists() and str(vendored_src) not in sys.path:
             sys.path.insert(0, str(vendored_src))
-        from parcake import PieceReader
-        return PieceReader
+        from parcake import PieceReader, PieceSaver
+        return PieceReader, PieceSaver
 
 
-PieceReader = _load_piece_reader()
+PieceReader, PieceSaver = _load_piece_classes()
+MAX_WORKERS = 23
 
 
 def normalize_agency_name(value: Any) -> str:
@@ -64,10 +65,10 @@ def coerce_list(value: Any) -> list[Any]:
 def default_worker_count(workers: Optional[int]) -> int:
     cpu_count = os.cpu_count() or 1
     if workers in (None, 0):
-        return max(1, cpu_count - 1)
+        return min(MAX_WORKERS, max(1, cpu_count - 1))
     if workers == -1:
-        return cpu_count
-    return max(1, int(workers))
+        return min(MAX_WORKERS, cpu_count)
+    return min(MAX_WORKERS, max(1, int(workers)))
 
 
 def iter_piece_results(
@@ -77,8 +78,20 @@ def iter_piece_results(
     processor: Callable[..., Any],
     workers: Optional[int] = None,
     keep_order: bool = True,
+    executor_kind: str = "thread",
+    chunksize: int = 1,
 ) -> Iterator[Any]:
     reader = PieceReader(source, columns=columns)
+    if executor_kind == "process":
+        yield from reader.process(
+            processor,
+            ncpu=default_worker_count(workers),
+            keep_order=keep_order,
+            unordered=not keep_order,
+            chunksize=chunksize,
+        )
+        return
+
     with ThreadPoolExecutor(max_workers=default_worker_count(workers)) as executor:
         yield from reader.process(
             processor,
