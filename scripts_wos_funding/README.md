@@ -73,6 +73,11 @@ Main generated outputs:
 - `Results/Samples/sample_by_agency_validation_dataset_2025_affiliation_match_20251023.csv`
 
 If you change the Step 1 basename, pass the matching `--matches` path here.
+Direct calls derive sample filenames from that input file unless
+`--output-basename` is supplied. The root runner supplies its configurable
+`validation_basename` to keep generated filenames consistent with output checks.
+Validation records are sorted by UT before sampling, so worker completion order
+does not change the fixed-seed paper sample.
 
 
 ## Running through the pipeline

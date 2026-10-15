@@ -13,6 +13,7 @@
     "manual_annotations": "data/manual_annotations.json",
     "matches_basename": "2025_affiliation_match_20251023",
     "matches": "{results_dir}/grant_institutions_{matches_basename}.parquet",
+    "validation_basename": "validation_dataset_{matches_basename}",
     "scope_map": "scripts_wos_funding/funder_multicountry_scope_map_top5000_reviewed.csv",
     "openalex_snapshot": "data/raw/openalex",
     "dimensions_root": "data/raw/dimensions",
@@ -282,6 +283,8 @@
         "{python}",
         "-u",
         "{repo}/scripts_wos_funding/step2_build_wos_validation_samples.py",
+        "--output-basename",
+        "{validation_basename}",
         "--matches",
         "{matches}",
         "--wos-main",
@@ -296,7 +299,7 @@
         "{data_dir}/{wos_basename}_main.parquet"
       ],
       "outputs": [
-        "{results_dir}/Samples/complete_validation_dataset_{matches_basename}.csv"
+        "{results_dir}/Samples/complete_{validation_basename}.csv"
       ]
     },
     "resolution": {
@@ -464,7 +467,8 @@
         "{data_dir}/{wos_basename}_main.parquet"
       ],
       "outputs": [
-        "{subset_run}/work/retained_record_metadata.parquet"
+        "{subset_run}/work/retained_record_metadata.parquet",
+        "{subset_run}/selection_summary.json"
       ]
     },
     "subset-matches": {

@@ -143,6 +143,13 @@ date. Set `matches_basename` for a new run. To analyze an existing result file,
 set `matches` directly; do not override `matches` during attachment, whose output
 name is determined by `results_dir` and `matches_basename`.
 
+The runner passes `validation_basename` explicitly to the validation script,
+so its filenames and output checks agree even when `matches` points to another
+file. It defaults to `validation_dataset_{matches_basename}`. Set
+`--set validation_basename=validation_dataset_other` to keep a separate sample
+set. Direct script calls without `--output-basename` derive filenames from the
+selected matches file as before.
+
 `--from` and `--to` select an inclusive range in a workflow. `--stage NAME` runs a
 single stage (repeat it for an explicit sequence). Inputs are checked before
 execution, including dependencies that earlier selected stages will create.

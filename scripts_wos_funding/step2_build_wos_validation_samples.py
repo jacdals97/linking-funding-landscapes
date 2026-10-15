@@ -32,6 +32,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--matches", type=Path, default=DEFAULT_MATCHES)
     parser.add_argument("--wos-main", type=Path, default=DEFAULT_WOS_MAIN)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument(
+        "--output-basename",
+        default=None,
+        help="Filename stem after complete_/sample_by_*_; defaults to the matches stem with grant_institutions replaced by validation_dataset.",
+    )
     parser.add_argument("--workers", type=int, default=-1)
     parser.add_argument("--sample-size", type=int, default=1000)
     return parser.parse_args()
@@ -111,13 +116,14 @@ def main() -> None:
     if not rows_by_ut:
         raise RuntimeError("No matching WOS records were found in the provided main parquet file.")
 
+    # Sampling uses row positions, so fixed seeds also require fixed row order.
     results = pd.DataFrame(
-        [{"UT": ut, "title": title, "DOI": doi} for ut, (title, doi) in rows_by_ut.items()]
+        [{"UT": ut, "title": title, "DOI": doi} for ut, (title, doi) in sorted(rows_by_ut.items())]
     )
     results["display_names"] = results["UT"].map(display_name_lookup).fillna("NOT MATCHED")
     results["OA_URLs"] = results["UT"].map(url_lookup).fillna("")
 
-    output_base_name = args.matches.stem.replace("grant_institutions", "validation_dataset")
+    output_base_name = args.output_basename or args.matches.stem.replace("grant_institutions", "validation_dataset")
     sample_by_paper_csv = args.output_dir / f"sample_by_paper_{output_base_name}.csv"
     sample_by_agency_csv = args.output_dir / f"sample_by_agency_{output_base_name}.csv"
     complete_csv = args.output_dir / f"complete_{output_base_name}.csv"

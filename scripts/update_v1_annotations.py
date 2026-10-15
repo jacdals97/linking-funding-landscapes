@@ -194,14 +194,17 @@ def aggregate_source(frame: pl.DataFrame) -> dict[str, dict[str, Any]]:
                 continue
             seen_funders.add(pair)
             funders.append({"name": pair[0], "id": pair[1]})
-        signatures: set[tuple[str, ...]] = set()
+        signatures: set[tuple[tuple[str, str], ...]] = set()
         for record_id in record_ids:
-            record_names = sorted(
-                normalized_text(row["funder_name"])
+            # Duplicate detail rows are one detection. Preserve the identifier
+            # when names are shared or absent so conflicting entities trigger review.
+            record_funders = {
+                (normalized_text(row["funder_name"]), clean(row["funder_id"]))
                 for row in rows
-                if clean(row["paper_id"]) == record_id and clean(row["funder_name"])
-            )
-            signatures.add(tuple(record_names))
+                if clean(row["paper_id"]) == record_id
+                and (clean(row["funder_name"]) or clean(row["funder_id"]))
+            }
+            signatures.add(tuple(sorted(record_funders)))
         result[doi] = {
             "record_ids": record_ids,
             "title": titles[0] if titles else "",

@@ -120,6 +120,8 @@ def write_plot(counts: pd.DataFrame, output_path: Path) -> None:
     max_year = int(counts["year"].max())
     min_exp = math.floor(math.log10(float(positive_values.min())))
     max_exp = math.ceil(math.log10(float(positive_values.max())))
+    # A single positive power of ten otherwise leaves a zero-width log range.
+    max_exp = max(max_exp, min_exp + 1)
     min_log = float(min_exp)
     max_log = float(max_exp)
 

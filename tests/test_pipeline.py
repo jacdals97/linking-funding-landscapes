@@ -101,3 +101,46 @@ def test_unknown_override_fails_before_running(tmp_path):
     result = run(tmp_path, make_config(tmp_path), "--set", "typo=value")
     assert result.returncode == 2
     assert not (tmp_path / "first").exists()
+
+
+def test_fresh_subset_preflight_needs_only_external_inputs(tmp_path):
+    from argparse import Namespace
+    from run_pipeline import build_plan
+
+    config = json.loads((ROOT / "pipeline.json").read_text())
+    for key in ["data_dir", "results_dir", "plotting_dir", "source_results",
+                "figure_output", "scope_map", "subset_run", "subset_bundle", "matches"]:
+        config["variables"][key] = str(tmp_path / key)
+    args = Namespace(overrides=[], stage=None, from_stage=None, to_stage=None,
+                     skip=[], workflow="scie-ssci")
+    for stage in build_plan(config, args):
+        for value in stage["inputs"]:
+            path = Path(value)
+            if not path.is_relative_to(tmp_path / "subset_run"):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.touch()
+    path = tmp_path / "fresh-subset.json"
+    path.write_text(json.dumps(config))
+    result = run(tmp_path, path, "--workflow", "scie-ssci", "--check-inputs")
+    assert result.returncode == 0, result.stderr
+    assert not (tmp_path / "subset_run").exists()
+    assert not (tmp_path / "logs").exists()
+
+
+def test_validation_contract_with_custom_matches(tmp_path):
+    import pandas as pd
+
+    matches = tmp_path / "grant_institutions_other.parquet"
+    pd.DataFrame({"UT": ["WOS:1"], "display_name": ["Example Funder"], "gid": ["OA_1"],
+                  "source": ["funders"], "grant_agency": ["Example"]}).to_parquet(matches)
+    main = tmp_path / "Custom_main.parquet"
+    pd.DataFrame({"UT": ["WOS:1"], "TI": ["Example Paper"], "DI": ["10.1/example"]}).to_parquet(main)
+    result = run(tmp_path, ROOT / "pipeline.json", "--stage", "validation",
+                 "--set", f"matches={matches}", "--set", f"data_dir={tmp_path}",
+                 "--set", "wos_basename=Custom", "--set", f"results_dir={tmp_path / 'results'}",
+                 "--set", "workers=1")
+    assert result.returncode == 0, result.stdout + result.stderr
+    manifest = json.loads(next((tmp_path / "logs").glob("*/run.json")).read_text())
+    assert manifest["stages"][0]["status"] == "complete"
+    output = Path(manifest["stages"][0]["outputs"][0])
+    assert pd.read_csv(output)["UT"].tolist() == ["WOS:1"]
