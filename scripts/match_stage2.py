@@ -21,6 +21,7 @@ from typing import List, Optional, Sequence
 import numpy as np
 import pandas as pd
 import ahocorasick
+import torch
 from gliner import GLiNER
 try:
     from tqdm.auto import tqdm  # type: ignore
@@ -141,9 +142,28 @@ def run_matching(df: pd.DataFrame, institutions: pd.DataFrame, text_col: str, ab
 # ---------------------------- NER on mid bucket ---------------------------- #
 
 
+def load_gliner(model_name: str, *, onnx_model: Optional[str]) -> GLiNER:
+    return GLiNER._from_pretrained(
+        model_id=model_name,
+        revision=None,
+        cache_dir=None,
+        force_download=False,
+        proxies=None,
+        resume_download=False,
+        local_files_only=False,
+        token=None,
+        load_onnx_model=True,
+        load_tokenizer=True,
+        onnx_model_file=onnx_model,
+    )
+
+
 def run_ner(texts: List[str], model_name: str, onnx_model: Optional[str], verbose:bool) -> List[List[str]]:
-    model = GLiNER.from_pretrained(model_name, load_onnx_model=True, load_tokenizer=True, onnx_model_file=onnx_model)
-    model.to("mps")
+    model = load_gliner(model_name, onnx_model=onnx_model)
+    if torch.backends.mps.is_available():
+        model.to("mps")
+    elif torch.cuda.is_available():
+        model.to("cuda")
     entities_out: List[List[str]] = []
     for t in iter_progress(texts, verbose, desc="NER mid bucket"):
         entities = model.predict_entities(t.replace("-", " "), ["organisation", "funder", "funding agency", "funding program"], threshold=0.3, flat_ner=False, multi_label=True)

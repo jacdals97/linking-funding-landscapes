@@ -1,0 +1,18 @@
+# Matching and data-processing dependencies (Python 3.11).
+dbgz
+datasketch==1.6.5
+numpy==1.26.3
+onnx==1.16.2
+onnxruntime
+pandas==2.1.4
+parcake
+polars==1.27.1
+pyarrow
+pyahocorasick==2.1.0
+pycountry
+networkx==3.2.1
+gliner==0.2.5
+requests
+torch
+tqdm==4.66.1
+tldextract==5.3.0

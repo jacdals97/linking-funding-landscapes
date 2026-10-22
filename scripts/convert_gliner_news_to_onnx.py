@@ -6,11 +6,25 @@ import torch
 from gliner import GLiNER
 
 
+def load_gliner(model_id: str, **kwargs) -> GLiNER:
+    return GLiNER._from_pretrained(
+        model_id=model_id,
+        revision=None,
+        cache_dir=None,
+        force_download=False,
+        proxies=None,
+        resume_download=False,
+        local_files_only=False,
+        token=None,
+        **kwargs,
+    )
+
+
 def export_onnx(model_id: str, output_dir: str, quantize: bool) -> None:
-    model = GLiNER.from_pretrained(model_id)
+    model = load_gliner(model_id)
     model.save_pretrained(output_dir)
 
-    gliner_model = GLiNER.from_pretrained(output_dir, load_tokenizer=True)
+    gliner_model = load_gliner(output_dir, load_tokenizer=True)
     gliner_model.model.eval()
 
     onnx_save_path = os.path.join(output_dir, "model.onnx")
@@ -84,6 +98,7 @@ def export_onnx(model_id: str, output_dir: str, quantize: bool) -> None:
         output_names=["logits"],
         dynamic_axes=dynamic_axes,
         opset_version=14,
+        dynamo=False,
     )
 
     if quantize:
