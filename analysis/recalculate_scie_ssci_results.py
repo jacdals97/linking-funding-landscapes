@@ -234,7 +234,8 @@ def aggregate_authors():
         .explode('country').select('UT','country').filter(pl.col('country').is_not_null()))
     names=collect(countries.select('country').unique())['country'].to_list()
     mapping={name:normalize_country_name(name) for name in names}
-    assert mapping.get('Canada')=='CA' and mapping.get('Japan')=='JP', 'Country lookup dependency unavailable.'
+    # Check the lookup itself; valid inputs need not contain these countries.
+    assert normalize_country_name('Canada')=='CA' and normalize_country_name('Japan')=='JP', 'Country lookup dependency unavailable.'
     write_json(RUN/'author_country_name_mapping.json',mapping)
     (countries.with_columns(pl.col('country').replace_strict(mapping,default=None,return_dtype=pl.String).alias('auth_countries'))
         .filter(pl.col('auth_countries').str.contains(r'^[A-Z]{2}$')).select('UT','auth_countries').unique()
