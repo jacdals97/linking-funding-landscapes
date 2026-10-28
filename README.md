@@ -21,7 +21,7 @@ machine-specific environment activation command.
 | `notebooks/paper_figures.ipynb` | Interactive companion that calls the figure script |
 | `plotting_data/` | Versioned plotting summaries; downloaded map geometry is cached here |
 | `data/` | Versioned OpenAlex/ROR references and manual mappings; local licensed inputs |
-| `evals/` | Original manual evaluation workbook |
+| `evals/` | Manual evaluation workbook, independent annotator CSVs, and analysis notebook |
 | `Results/`, `artifacts/`, `outputs/`, `paper_figures_output/`, `bundles/` | Generated products, excluded from Git |
 
 The preprocessing libraries remain Git submodules. Local agent resources and
@@ -169,6 +169,8 @@ the ROR snapshot, manual string-to-ID annotations, and reviewed scope maps.
 Licensed WoS and Dimensions data, raw snapshots, model weights, annotation
 working files, and generated outputs are not distributed in Git. Their schemas
 and provenance are documented in [data/README.md](data/README.md).
+The three manual-evaluation rating CSVs in `evals/` are versioned separately
+from those working files.
 
 Optional stage-1 OpenAlex augmentation reads `OPENALEX_API_KEY` from the
 environment. Without it, API augmentation is skipped. Set it outside the
@@ -195,6 +197,26 @@ The notebook calls `analysis/generate_paper_figures.py` with its own Python
 interpreter. It displays generated plots rather than containing a separate
 implementation. Historical release-rendering corrections are available as
 explicit utilities and are not part of a normal data-processing run.
+
+## Manual funder evaluation
+
+The self-contained [evaluation notebook](evals/manual_evaluation.ipynb) reads
+the independent ratings from
+[Jacob](evals/records_jacob_20261002.csv),
+[Filipi](evals/records_filipi_20261002.csv), and
+[Jin](evals/annotation_ja_20261002.csv). Open it from the repository root or
+`evals/` and run the cells in order. The Conda environment above, including
+`env-paper.yml`, supplies NumPy, pandas, Matplotlib, and Jupyter; a smaller
+notebook-only environment needs those four packages.
+
+The notebook joins ratings by `record_id` and reports evaluation metrics,
+10,000 paper-level bootstrap resamples and paired database differences,
+Krippendorff's interval alpha, and linearly weighted Gwet's AC2. It also shows
+the Jacob–Filipi comparison of wrong-funder judgments and exact count agreement
+with mean absolute differences across annotators. The 500-paper sample is
+already present in the CSVs; the bootstrap does not redraw the original WoS
+sample. The notebook reads the CSVs without changing them and needs no licensed
+WoS source tables or generated files under `evals/results/`.
 
 ## Checks
 
