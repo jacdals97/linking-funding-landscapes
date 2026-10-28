@@ -21,7 +21,7 @@ machine-specific environment activation command.
 | `notebooks/paper_figures.ipynb` | Interactive companion that calls the figure script |
 | `plotting_data/` | Versioned plotting summaries; downloaded map geometry is cached here |
 | `data/` | Versioned OpenAlex/ROR references and manual mappings; local licensed inputs |
-| `evals/` | Manual evaluation workbook, independent annotator CSVs, and analysis notebook |
+| `evals/` | Independent annotator CSVs, and analysis notebook |
 | `Results/`, `artifacts/`, `outputs/`, `paper_figures_output/`, `bundles/` | Generated products, excluded from Git |
 
 The preprocessing libraries remain Git submodules. Local agent resources and
@@ -231,7 +231,7 @@ They do not rerun the complete licensed-data matching pipeline.
 ## Data release and citation
 
 Pipeline output data are released on Zenodo:
-[10.5281/zenodo.18895449](https://doi.org/10.5281/zenodo.18895449).
+[10.5281/zenodo.23200326](https://zenodo.org/records/23200326).
 
 If you use the code or derived data, cite *Linking Global Science Funding to
 Research Publications*, Jacob Aarup Dalsgaard, Filipi Nascimento Silva, and Jin Ai,
