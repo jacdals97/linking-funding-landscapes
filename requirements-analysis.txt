@@ -1,0 +1,6 @@
+# Install in addition to requirements.txt.
+matplotlib
+seaborn
+geopandas
+pillow
+pymupdf
